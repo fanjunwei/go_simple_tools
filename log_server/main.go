@@ -3,11 +3,11 @@ package main
 import (
 	"net/http"
 	"log"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"io/ioutil"
+	"encoding/json"
 )
 
 var (
@@ -21,38 +21,25 @@ type LogReq struct {
 	Text     string `json:"text"`
 }
 
-type LogRes struct {
-	Success bool `json:"success"`
-}
 
 func httpWriteLog(w http.ResponseWriter, r *http.Request) {
-	var logReq LogReq
+
 	if r.Method == "POST" {
-		r.ParseForm()
 		buffer, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			w.Write([]byte(fmt.Sprintf("req error:", err)))
 			w.WriteHeader(400)
 			return
 		}
-
+		var logReq LogReq
 		err = json.Unmarshal(buffer, &logReq)
 		if err != nil {
-			w.Write([]byte(fmt.Sprintf("req error:", err)))
-			w.WriteHeader(400)
+			fmt.Println("req error:", err)
 			return
 		}
 		logChannel <- logReq
-		res := LogRes{
-			Success: true,
-		}
-		out, err := json.Marshal(res)
-		if err != nil {
-			w.Write([]byte(fmt.Sprint(err)))
-			w.WriteHeader(500)
-		} else {
-			w.Write(out)
-		}
+
+		w.Write([]byte("ok\n"))
 	} else {
 		w.Write([]byte("Method Not Allowed"))
 		w.WriteHeader(405)
@@ -102,7 +89,7 @@ func writeLog() {
 			if err != nil {
 				fmt.Println(err)
 			}
-			fmt.Fprintln(fd,logData.Text)
+			fmt.Fprintln(fd, logData.Text)
 		}
 	}
 }
