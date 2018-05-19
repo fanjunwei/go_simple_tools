@@ -21,7 +21,6 @@ type LogReq struct {
 	Text     string `json:"text"`
 }
 
-
 func httpWriteLog(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "POST" {
@@ -94,10 +93,16 @@ func writeLog() {
 	}
 }
 func main() {
+	var listen string
+	if len(os.Args) >= 2 {
+		listen = os.Args[1]
+	} else {
+		listen = "127.0.0.1:35673"
+	}
 	go writeLog()
 	http.HandleFunc("/", home)
 	http.HandleFunc("/log", httpWriteLog)
-	err := http.ListenAndServe("127.0.0.1:35678", nil)
+	err := http.ListenAndServe(listen, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
