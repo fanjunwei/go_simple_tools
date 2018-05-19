@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"io/ioutil"
 )
 
 var (
@@ -26,10 +27,16 @@ type LogRes struct {
 
 func httpWriteLog(w http.ResponseWriter, r *http.Request) {
 	var logReq LogReq
-	var buffer []byte;
 	if r.Method == "POST" {
-		r.Body.Read(buffer)
-		err := json.Unmarshal(buffer, &logReq)
+		r.ParseForm()
+		buffer, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			w.Write([]byte(fmt.Sprintf("req error:", err)))
+			w.WriteHeader(400)
+			return
+		}
+
+		err = json.Unmarshal(buffer, &logReq)
 		if err != nil {
 			w.Write([]byte(fmt.Sprintf("req error:", err)))
 			w.WriteHeader(400)
@@ -95,7 +102,7 @@ func writeLog() {
 			if err != nil {
 				fmt.Println(err)
 			}
-			fd.Write([]byte(logData.Text))
+			fmt.Fprintln(fd,logData.Text)
 		}
 	}
 }
