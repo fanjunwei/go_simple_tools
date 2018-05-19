@@ -86,7 +86,6 @@ func getLogFile(logFilePath string) (file *os.File, err error) {
 	return
 }
 func writeLog() {
-
 	for {
 		select {
 		case <-exitChannel:
