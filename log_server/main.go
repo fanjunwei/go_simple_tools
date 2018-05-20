@@ -27,7 +27,8 @@ var (
 )
 
 const (
-	INTERVAL = int64(time.Hour * 24)
+	INTERVAL_SECONDS = 3
+
 )
 
 func httpWriteLog(w http.ResponseWriter, r *http.Request) {
@@ -74,18 +75,28 @@ func PathExists(path string) (bool) {
 func checkRollover(logFilePath string) {
 	logNode, ok := logNodeMap[logFilePath]
 	if ok {
-		if time.Now().UnixNano() >= logNode.RolloverAt {
-			logNode.Fd.Close()
-			ts := (logNode.RolloverAt - INTERVAL) / int64(time.Second)
+		if time.Now().Unix() >= logNode.RolloverAt {
+			fmt.Println("on roll")
+			err:=logNode.Fd.Close()
+			if err!=nil{
+				fmt.Println(err)
+				return
+			}
+			ts := (logNode.RolloverAt - INTERVAL_SECONDS)
 			dir := filepath.Dir(logFilePath)
 			name := filepath.Base(logFilePath)
-			t := time.Unix(ts, 0).Format("2006-01-02")
+			t := time.Unix(ts, 0).Format("2006_01_02_15_04_05")
 			name = fmt.Sprintf("%s_%s", name, t)
 			newPath := filepath.Join(dir, name)
+			fmt.Println("newpath:",newPath)
 			if PathExists(newPath) {
 				os.Remove(newPath)
 			}
-			os.Rename(logFilePath, newPath)
+			fmt.Println("to:",logFilePath,newPath)
+			err=os.Rename(logFilePath, newPath)
+			if err!=nil{
+				fmt.Println(err)
+			}
 			delete(logNodeMap, logFilePath)
 		}
 	}
@@ -108,11 +119,13 @@ func getLogFile(logFilePath string) (file *os.File, err error) {
 	if err != nil {
 		return
 	}
-	mdTime := stat.ModTime().UnixNano()
+	mdTime := stat.ModTime().Unix()
+	rolloverAt:=mdTime - mdTime%INTERVAL_SECONDS + INTERVAL_SECONDS
 	logNodeMap[logFilePath] = &LogNode{
 		Fd:         file,
-		RolloverAt: mdTime - mdTime%INTERVAL + INTERVAL,
+		RolloverAt: rolloverAt,
 	}
+	fmt.Println("route at:",time.Unix(rolloverAt,0).Format("2006-01-02_15:04:05"))
 	return
 }
 func writeLog() {
