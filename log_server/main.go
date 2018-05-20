@@ -9,6 +9,8 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"time"
+	"path"
+	"strings"
 )
 
 type LogReq struct {
@@ -27,8 +29,8 @@ var (
 )
 
 const (
-	INTERVAL_SECONDS = 3
-
+	INTERVAL_SECONDS = 60 * 60 * 24
+	TIME_FORMAT      = "2006_01_02_15_04_05"
 )
 
 func httpWriteLog(w http.ResponseWriter, r *http.Request) {
@@ -76,25 +78,24 @@ func checkRollover(logFilePath string) {
 	logNode, ok := logNodeMap[logFilePath]
 	if ok {
 		if time.Now().Unix() >= logNode.RolloverAt {
-			fmt.Println("on roll")
-			err:=logNode.Fd.Close()
-			if err!=nil{
+			err := logNode.Fd.Close()
+			if err != nil {
 				fmt.Println(err)
 				return
 			}
 			ts := (logNode.RolloverAt - INTERVAL_SECONDS)
 			dir := filepath.Dir(logFilePath)
-			name := filepath.Base(logFilePath)
-			t := time.Unix(ts, 0).Format("2006_01_02_15_04_05")
-			name = fmt.Sprintf("%s_%s", name, t)
-			newPath := filepath.Join(dir, name)
-			fmt.Println("newpath:",newPath)
+			filenameWithSuffix := filepath.Base(logFilePath)
+			fileSuffix := path.Ext(filenameWithSuffix)
+			filenameOnly := strings.TrimSuffix(filenameWithSuffix, fileSuffix)
+			t := time.Unix(ts, 0).Format(TIME_FORMAT)
+			newName := fmt.Sprintf("%s_%s%s", filenameOnly, t, fileSuffix)
+			newPath := filepath.Join(dir, newName)
 			if PathExists(newPath) {
 				os.Remove(newPath)
 			}
-			fmt.Println("to:",logFilePath,newPath)
-			err=os.Rename(logFilePath, newPath)
-			if err!=nil{
+			err = os.Rename(logFilePath, newPath)
+			if err != nil {
 				fmt.Println(err)
 			}
 			delete(logNodeMap, logFilePath)
@@ -120,12 +121,11 @@ func getLogFile(logFilePath string) (file *os.File, err error) {
 		return
 	}
 	mdTime := stat.ModTime().Unix()
-	rolloverAt:=mdTime - mdTime%INTERVAL_SECONDS + INTERVAL_SECONDS
+	rolloverAt := mdTime - mdTime%INTERVAL_SECONDS + INTERVAL_SECONDS
 	logNodeMap[logFilePath] = &LogNode{
 		Fd:         file,
 		RolloverAt: rolloverAt,
 	}
-	fmt.Println("route at:",time.Unix(rolloverAt,0).Format("2006-01-02_15:04:05"))
 	return
 }
 func writeLog() {
