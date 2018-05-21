@@ -30,7 +30,7 @@ var (
 
 const (
 	INTERVAL_SECONDS = 60 * 60 * 24
-	TIME_FORMAT      = "2006_01_02_15_04_05"
+	TIME_FORMAT      = "2006_01_02"
 )
 
 func httpWriteLog(w http.ResponseWriter, r *http.Request) {
