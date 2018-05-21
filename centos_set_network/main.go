@@ -12,7 +12,7 @@ import (
 
 type NetWorkInfo struct {
 	Mac     string `json:"mac"`
-	Ip      string `json:"ip"`
+	Ip      string `json:"ip"` //cidr格式
 	Gateway string `json:"gateway"`
 }
 
