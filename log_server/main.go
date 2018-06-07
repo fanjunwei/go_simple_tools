@@ -156,6 +156,7 @@ func checkRollover(logFilePath string) {
 	logNode, ok := logNodeMap[logFilePath]
 	if ok {
 		if time.Now().Unix() >= logNode.RolloverAt {
+			delete(logNodeMap, logFilePath)
 			err := logNode.Fd.Close()
 			if err != nil {
 				fmt.Println(err)
@@ -175,15 +176,16 @@ func checkRollover(logFilePath string) {
 			}
 			file, err := os.OpenFile(logFilePath, os.O_RDWR, 0644)
 			if err != nil {
+				fmt.Println(err)
 				return
 			}
 			Compress([]*TarFile{{File: file, DestName: newName}}, newTarPath)
 
-			//err = os.Rename(logFilePath, newPath)
+			err = os.Remove(logFilePath)
 			if err != nil {
 				fmt.Println(err)
 			}
-			delete(logNodeMap, logFilePath)
+
 		}
 	}
 }
@@ -192,17 +194,23 @@ func getLogFile(logFilePath string) (file *os.File, err error) {
 	dir := filepath.Dir(logFilePath)
 	logNode, ok := logNodeMap[logFilePath]
 	if ok {
-		return logNode.Fd, nil
+		if !PathExists(logFilePath) {
+			logNode.Fd.Close()
+		} else {
+			return logNode.Fd, nil
+		}
 	}
 	if !PathExists(dir) {
 		os.MkdirAll(dir, 0777)
 	}
 	file, err = os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 	stat, err := file.Stat()
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 	mdTime := stat.ModTime().Unix()
@@ -222,8 +230,10 @@ func writeLog() {
 			fd, err := getLogFile(logData.FileName)
 			if err != nil {
 				fmt.Println(err)
+			} else {
+				fmt.Fprintln(fd, logData.Text)
 			}
-			fmt.Fprintln(fd, logData.Text)
+
 		}
 	}
 }
