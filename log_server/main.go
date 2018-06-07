@@ -37,8 +37,8 @@ var (
 )
 
 const (
-	INTERVAL_SECONDS = 5
-	TIME_FORMAT      = "2006_01_02-150405"
+	IntervalSeconds = 60 * 60 * 24
+	TimeFormat      = "2006_01_02"
 )
 
 //压缩 使用gzip压缩成tar.gz
@@ -50,7 +50,7 @@ func Compress(files []*TarFile, dest string) error {
 	tw := tar.NewWriter(gw)
 	defer tw.Close()
 	for _, file := range files {
-		err := compress_for_file(file, "", tw)
+		err := compressForFile(file, "", tw)
 		if err != nil {
 			return err
 		}
@@ -58,7 +58,7 @@ func Compress(files []*TarFile, dest string) error {
 	return nil
 }
 
-func compress_for_file(fileNode *TarFile, prefix string, tw *tar.Writer) error {
+func compressForFile(fileNode *TarFile, prefix string, tw *tar.Writer) error {
 	file := fileNode.File
 	info, err := file.Stat()
 	if err != nil {
@@ -81,7 +81,7 @@ func compress_for_file(fileNode *TarFile, prefix string, tw *tar.Writer) error {
 			if err != nil {
 				return err
 			}
-			err = compress_for_file(&TarFile{File: f, DestName: ""}, prefix, tw)
+			err = compressForFile(&TarFile{File: f, DestName: ""}, prefix, tw)
 			if err != nil {
 				return err
 			}
@@ -116,7 +116,7 @@ func httpWriteLog(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		buffer, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			w.Write([]byte(fmt.Sprintf("req error:", err)))
+			w.Write([]byte(fmt.Sprint("req error:", err)))
 			w.WriteHeader(400)
 			return
 		}
@@ -161,12 +161,12 @@ func checkRollover(logFilePath string) {
 				fmt.Println(err)
 				return
 			}
-			ts := (logNode.RolloverAt - INTERVAL_SECONDS)
+			ts := logNode.RolloverAt - IntervalSeconds
 			dir := filepath.Dir(logFilePath)
 			filenameWithSuffix := filepath.Base(logFilePath)
 			fileSuffix := path.Ext(filenameWithSuffix)
 			filenameOnly := strings.TrimSuffix(filenameWithSuffix, fileSuffix)
-			t := time.Unix(ts, 0).Format(TIME_FORMAT)
+			t := time.Unix(ts, 0).Format(TimeFormat)
 			newName := fmt.Sprintf("%s_%s%s", filenameOnly, t, fileSuffix)
 			newPath := filepath.Join(dir, newName)
 			newTarPath := newPath + ".tar.gz"
@@ -177,7 +177,7 @@ func checkRollover(logFilePath string) {
 			if err != nil {
 				return
 			}
-			Compress([]*TarFile{&TarFile{File: file, DestName: newName}}, newTarPath)
+			Compress([]*TarFile{{File: file, DestName: newName}}, newTarPath)
 
 			//err = os.Rename(logFilePath, newPath)
 			if err != nil {
@@ -206,7 +206,7 @@ func getLogFile(logFilePath string) (file *os.File, err error) {
 		return
 	}
 	mdTime := stat.ModTime().Unix()
-	rolloverAt := mdTime - mdTime%INTERVAL_SECONDS + INTERVAL_SECONDS
+	rolloverAt := mdTime - mdTime%IntervalSeconds + IntervalSeconds
 	logNodeMap[logFilePath] = &LogNode{
 		Fd:         file,
 		RolloverAt: rolloverAt,
