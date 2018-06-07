@@ -173,7 +173,7 @@ func checkRollover(logFilePath string) {
 			if PathExists(newTarPath) {
 				os.Remove(newTarPath)
 			}
-			file, err := os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+			file, err := os.OpenFile(logFilePath, os.O_RDWR, 0644)
 			if err != nil {
 				return
 			}
