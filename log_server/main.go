@@ -11,6 +11,9 @@ import (
 	"time"
 	"path"
 	"strings"
+	"compress/gzip"
+	"archive/tar"
+	"io"
 )
 
 type LogReq struct {
@@ -22,6 +25,11 @@ type LogNode struct {
 	RolloverAt int64
 }
 
+type TarFile struct {
+	File     *os.File
+	DestName string
+}
+
 var (
 	logChannel  = make(chan LogReq, 100)
 	exitChannel = make(chan int)
@@ -29,9 +37,79 @@ var (
 )
 
 const (
-	INTERVAL_SECONDS = 60 * 60 * 24
-	TIME_FORMAT      = "2006_01_02"
+	INTERVAL_SECONDS = 5
+	TIME_FORMAT      = "2006_01_02-150405"
 )
+
+//压缩 使用gzip压缩成tar.gz
+func Compress(files []*TarFile, dest string) error {
+	d, _ := os.Create(dest)
+	defer d.Close()
+	gw := gzip.NewWriter(d)
+	defer gw.Close()
+	tw := tar.NewWriter(gw)
+	defer tw.Close()
+	for _, file := range files {
+		err := compress_for_file(file, "", tw)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func compress_for_file(fileNode *TarFile, prefix string, tw *tar.Writer) error {
+	file := fileNode.File
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		var name string
+		if fileNode.DestName != "" {
+			name = fileNode.DestName
+		} else {
+			name = info.Name()
+		}
+		prefix = prefix + "/" + name
+		fileInfos, err := file.Readdir(-1)
+		if err != nil {
+			return err
+		}
+		for _, fi := range fileInfos {
+			f, err := os.Open(file.Name() + "/" + fi.Name())
+			if err != nil {
+				return err
+			}
+			err = compress_for_file(&TarFile{File: f, DestName: ""}, prefix, tw)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		header, err := tar.FileInfoHeader(info, "")
+		var name string
+		if fileNode.DestName != "" {
+			name = fileNode.DestName
+		} else {
+			name = info.Name()
+		}
+		header.Name = prefix + "/" + name
+		if err != nil {
+			return err
+		}
+		err = tw.WriteHeader(header)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(tw, file)
+		file.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func httpWriteLog(w http.ResponseWriter, r *http.Request) {
 
@@ -91,10 +169,17 @@ func checkRollover(logFilePath string) {
 			t := time.Unix(ts, 0).Format(TIME_FORMAT)
 			newName := fmt.Sprintf("%s_%s%s", filenameOnly, t, fileSuffix)
 			newPath := filepath.Join(dir, newName)
-			if PathExists(newPath) {
-				os.Remove(newPath)
+			newTarPath := newPath + ".tar.gz"
+			if PathExists(newTarPath) {
+				os.Remove(newTarPath)
 			}
-			err = os.Rename(logFilePath, newPath)
+			file, err := os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+			if err != nil {
+				return
+			}
+			Compress([]*TarFile{&TarFile{File: file, DestName: newName}}, newTarPath)
+
+			//err = os.Rename(logFilePath, newPath)
 			if err != nil {
 				fmt.Println(err)
 			}
