@@ -1,3 +1,3 @@
-set GOARCH=amd64
-set GOOS=linux
+export GOARCH=amd64
+export GOOS=linux
 go build
