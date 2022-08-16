@@ -26,7 +26,7 @@ func main() {
 					fmt.Printf(`usage: %s [OPTIONS]
     -a ADDR: address (default: 0.0.0.0)
     -p PORT: port number (default: 7000)
-    -d DIR:  root directory (default: public)`, os.Args[0])
+    -d DIR:  root directory (default: .)`, os.Args[0])
 					os.Exit(1)
 				}
 			} else if tag == "a" {
