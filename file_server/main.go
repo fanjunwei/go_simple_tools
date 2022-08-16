@@ -31,16 +31,19 @@ func main() {
 				}
 			} else if tag == "a" {
 				addr = data
+				tag = ""
 			} else if tag == "p" {
 				port = data
+				tag = ""
 			} else if tag == "d" {
 				filePath = data
+				tag = ""
 			}
 		}
 	}
 	http.Handle("/", http.StripPrefix("/", http.FileServer(http.Dir(filePath))))
-	fmt.Printf("listen: %s:%s\n", addr, port)
-	fmt.Printf("path: %s\n", filePath)
+	log.Printf("listen: %s:%s\n", addr, port)
+	log.Printf("path: %s\n", filePath)
 	err := http.ListenAndServe(fmt.Sprintf("%s:%s", addr, port), nil)
 	if err != nil {
 		log.Fatal("ERROR: ", err)
